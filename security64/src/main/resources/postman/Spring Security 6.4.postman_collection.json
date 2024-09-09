@@ -1,0 +1,131 @@
+{
+	"info": {
+		"_postman_id": "03a9f411-93de-44fe-ba6c-4c9841de5471",
+		"name": "Spring Security 6.4",
+		"description": "| **id** | **name** | **password** | **role** |\n| --- | --- | --- | --- |\n| 1 | angelo | password-123 | MASTER |\n| 2 | jake | password-456 | TOP |\n| 3 | dumb | password-789 | UP |",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "12384551"
+	},
+	"item": [
+		{
+			"name": "Get Bank Account - Success",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "password-123",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "angelo",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/api/v1/bank-account/1",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"bank-account",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Bank Account - Ok",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "password-789",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "dumb",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/api/v1/bank-account/1",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"bank-account",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Bank Account - Fail",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "password-456",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "jake",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/api/v1/bank-account/1",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"bank-account",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
