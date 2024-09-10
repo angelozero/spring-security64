@@ -1,4 +1,4 @@
-# Recursos de Autorização com Spring Security 3.4
+# Recursos de Autorização com Spring Security 6.4
 
 ## Recursos utilizados no projeto
 - [Java 22](https://jdk.java.net/22/)

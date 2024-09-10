@@ -1,5 +1,8 @@
 package com.angelozero.spring.security64.z_old;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class BankAccountService implements BankAccountInterface {
 
     @Override
