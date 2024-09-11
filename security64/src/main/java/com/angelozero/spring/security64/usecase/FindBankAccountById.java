@@ -13,6 +13,7 @@ public class FindBankAccountById implements FindBankAccountByIdGateway {
 
     @Override
     public BankAccount execute(Integer id) {
+
         return getBankAccountInfo.execute(id);
     }
 }

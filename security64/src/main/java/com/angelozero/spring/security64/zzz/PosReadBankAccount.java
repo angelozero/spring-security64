@@ -1,4 +1,4 @@
-package com.angelozero.spring.security64.z_old;
+package com.angelozero.spring.security64.zzz;
 
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.authorization.method.AuthorizeReturnObject;

@@ -1,8 +1,6 @@
-package com.angelozero.spring.security64.z_old;
+package com.angelozero.spring.security64.zzz;
 
 //import org.springframework.security.access.prepost.PostAuthorize;
-
-import com.angelozero.spring.security64.usecase.domain.BankAccount;
 
 public interface BankAccountInterface {
 
@@ -14,5 +12,9 @@ public interface BankAccountInterface {
     @PosReadBankAccount
     BankAccountData getById(Integer id);
 
+    @PreWriteBankAccount("#bankAccountDataToSave")
     void saveBankAccount(BankAccountData bankAccountDataToSave);
+
+    @PreWriteBankAccount("#bankAccountDataToUpdate")
+    void updateBankAccount(BankAccountData bankAccountDataToUpdate);
 }

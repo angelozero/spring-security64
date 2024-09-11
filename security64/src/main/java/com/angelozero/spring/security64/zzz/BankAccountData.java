@@ -1,4 +1,4 @@
-package com.angelozero.spring.security64.z_old;
+package com.angelozero.spring.security64.zzz;
 
 
 import com.angelozero.spring.security64.config.handler.MaskAuthorizationDeniedHandler;

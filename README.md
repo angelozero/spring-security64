@@ -373,9 +373,9 @@
         //... some code here
     ```
 
-## Utilizando lógicas autorização com Spring Security
+## Utilizando lógicas de *pós* execução de método para aplicar autorização com Spring Security
 - Voltando para nossa interface `BankAccountInterface` vamos fazer uma nova modificação.
-- Quero utilizar o **Spring Security** para que faça uma *Pré* e uma *Pós* validação de segurança.
+- Quero utilizar o **Spring Security** para que faça uma *Pós* validação de segurança.
 - No método `findById()` quero que após a sua execução seja validado se o retorno da informação, no caso o proprietário da conta, tenha o mesmo nome que o usuário logado na sessão.
 - Para isso podemos utilizar uma *annotation* chamada `@PostAuthorize()` e informar para ela uma palavhra chave chamada `returnObject` aonde teremos acesso ao objeto retornado, no caso *BankAccount*.
 - Tendo a informação de `BankAccount` e lembrando que o *Spring Security* tem acesso aos dados de quem está *logado* acessando `SecurityContextHolder`, podemos então criar uma simples validação.
@@ -591,6 +591,149 @@ public class BankAccountServiceProxy implements BankAccountInterface {
     }
     ```
 
-- Por fim lembre-se que podemos ainda fazer qualquer tipo de validação dentro do nosso *handler* criado pois lá temos os dados de proxy, sendo assim podendo criar nossas próprias regras customizadas
-- `handleDeniedInvocation(MethodInvocation methodInvocation, AuthorizationResult authorizationResult)`
+- Por fim lembre-se que podemos ainda fazer qualquer tipo de validação dentro do nosso *handler* criado pois lá temos os dados de proxy, sendo assim podendo criar nossas próprias regras customizadas.
 
+## Utilizando lógicas de *pré* execução de método para aplicar autorização com Spring Security
+- Voltando para nossa interface `BankAccountInterface` vamos fazer mais uma modificação.
+- Quero utilizar o **Spring Security** para que faça agora uma *Pré* validação de segurança.
+- Vamos criar mais um método fictício que agora deve salvar uma nova conta bancária.
+- Para isso vamos adicionar na nossa interface o seguinte método
+    ```java
+    void saveBankAccount(BankAccountData bankAccountDataToSave);
+    ```
+- Ainda no método `saveBankAccount()` quero que ele faça uma verificação do objeto que esta sendo persistido comparando o nome do proprietário da conta com o nome do usuário logado em sessão, e isso deve ocorrer antes dos dados serem "*persistidos*"
+- Para isso vou adicionar então uma nova *annotation* chamada `@PreAuthorize()` e dentro dela passar a referência do objeto para recuperar o nome do proprietário da conta e comparar com o nome do usuário logado em sessão.
+    ```java
+    @PreAuthorize("#bankAccountDataToSave?.owner == authentication?.name")
+    void saveBankAccount(BankAccountData bankAccountDataToSave)
+    ```
+
+- E para garantir que tudo continua funcionando vamos criar mais dois testes
+    - 1. Um aonde um usuário que esta logado esta tentando salvar uma conta da qual ele tem acesso (a dele mesmo no caso).
+        ```java
+        @Test
+        @DisplayName("Should save a bank account with success")
+        @WithMockUserAngelo
+        void shouldSaveABankAccountWithSuccess() {
+            service.saveBankAccount(mockBankAccountAngelo());
+        }
+        ```
+    - 2. E outro aonde o usuário logado não tem permissão para salvar a conta da qual não o pertence.
+        ```java
+        @Test
+        @DisplayName("Should not save a bank account")
+        @WithMockUserJake
+        void shouldSNotSaveABankAccount() {
+            assertThatExceptionOfType(AuthorizationDeniedException.class)
+                    .isThrownBy(() -> service.saveBankAccount(mockBankAccountAngelo()))
+                    .withMessage("Access Denied");
+        }
+        ```
+- Agora vou adicionar mais um método que irá atualizar os dados bancários, a regra para autorização continua sendo a mesma
+    ```java
+    @PreAuthorize("#bankAccountDataToUpdate?.owner == authentication?.name")
+    void updateBankAccount(BankAccountData bankAccountDataToUpdate);
+    ```
+- E adicionei também mais dois cenários de teste que segue a mesma lógica dos dois anteriores
+    ```java
+    @Test
+    @DisplayName("Should update a bank account with success")
+    @WithMockUserAngelo
+    void shouldUpdateABankAccountWithSuccess() {
+        service.updateBankAccount(mockBankAccountAngelo());
+    }
+
+    @Test
+    @DisplayName("Should not update a bank account")
+    @WithMockUserJake
+    void shouldSNotUpdateABankAccount() {
+        assertThatExceptionOfType(AuthorizationDeniedException.class)
+                .isThrownBy(() -> service.updateBankAccount(mockBankAccountAngelo()))
+                .withMessage("Access Denied");
+    }
+    ```
+- Até aqui tudo certo, mas repare que na nossa interface estamos duplicando a *annotation* `@PreAuthorize` e alterando apenas o nome da referência do objeto que deve ser verificado. Como podemos então evitar essa duplicação ?
+- Para isso vamos criar uma nova *annotation* e utilizar um recurso muito interessante do *Spring Security* chamado *templates*
+- Básicamente iremos informar, ao usar a nova *annotation*, qual o nome da referência do objeto, e na regra da *annotation*, independente do nome que o objeto tem, ela sempre irá conseguir buscar o valor correto.
+- Ao declararmos um atributo do tipo `String` com o nome `value` iremos conseguir utiliza-lo para ser a nossa referência do objeto que será passado tanto no método `saveBankAccount()` quanto no método `updateBankAccount()`
+- A *annotation* que vamos criar irá se chamar `PreWriteBankAccount` e ela fica assim:
+    ```java
+    @Retention(RetentionPolicy.RUNTIME)
+    @PreAuthorize("{value}?.owner == authentication?.name")
+    public @interface PreWriteBankAccount {
+        String value();
+    }
+    ```
+- E na interface `BankAccountInterface` fazemos a seguinte alteração
+    ```java
+    @PreWriteBankAccount("#bankAccountDataToSave")
+    void saveBankAccount(BankAccountData bankAccountDataToSave);
+
+    @PreWriteBankAccount("#bankAccountDataToUpdate")
+    void updateBankAccount(BankAccountData bankAccountDataToUpdate);
+    ```
+
+- Por fim, e se caso quisermos testar a aplicação fazendo chamadas *rest*, adicionei ao projeto um simples fluxo aonde utilizo toda a estrutura aqui documentada. O mais importante e apenas para etendermos como as coisas estão funcionando, crei um *bean* aonde insiro manualmente alguns usuários em sessão e com isso tento fazer algumas validações
+- o *bena* se chama `SpringSecurity` e ele esta assim:
+```java
+@Configuration
+public class SpringSecurity {
+
+    @Bean
+    PrePostTemplateDefaults prePostTemplateDefaults() {
+        return new PrePostTemplateDefaults();
+    }
+
+    @Bean
+    UserDetailsService userDetailsService() {
+        UserDetails angelo = User.builder()
+                .username("angelo")
+                .password("{noop}password-123")
+                .roles("MASTER")
+                .build();
+
+        UserDetails jake = User.builder()
+                .username("jake")
+                .password("{noop}password-456")
+                .roles("TOP")
+                .build();
+
+        UserDetails dumb = User.builder()
+                .username("dumb")
+                .password("{noop}password-789")
+                .roles("UP")
+                .build();
+
+        return new InMemoryUserDetailsManager(angelo, jake, dumb);
+    }
+}
+```
+- Para terstarmos como se fosse uma chamada *http* vou deixar de exemplo 3 cenários de teste, vale resssaltar que a classe / objeto que está sendo retornado como resposta precisa ter algumas configurações pois como ela se torna uma parte do proxy a biblioteca de desserialização `jackson` por si só não irá conseguir converter o dado para `json`
+- O retorno sem desserialização
+    ![retorno-proxy](./images/retorno-proxy.png)
+
+- Para que o retorno esteja correto precisamos da *annotation* `@JsonSerialize()` do pacote `com.fasterxml.jackson.databind.annotation.JsonSerialize` e do `@Data` do *Lombok*
+- A classe fica assim:
+    ```java
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @JsonSerialize(as = BankAccount.class)
+    public class BankAccount {
+        //... some code here
+    ```
+
+- Agora subindo a aplicação e chamando a rota  `GET - /api/v1/bank-account/{id}` (aqui estou utilizando o [Postman](https://www.postman.com/downloads/))
+- Vamos aos testes
+    - 1. Sucesso ao estar logado com o usuário proprietário da conta
+        ![teste-ok](./images/teste-ok.png)
+    - 2. Sucesso ao estar com um usuário que tem privilégio de ver alguns dados da conta mas não seu número
+        ![teste-1-ok](./images/teste-1-ok.png)
+    - 3. Falha ao estar logado com um usuário que não deve ter acesso a conta da qual não é sua
+        ![teste-2-ok](./images/teste-2-ok.png)
+
+## Enfim
+- Por hoje é só, com isso conseguimos passar por algumas *features* que o *Spring Security* tem a nos oferecer.
+- Para o projeto de teste veja o pacote `zzz` nele tem todas as classes utilziadas na explicação e todo o código utilizado, os comentários foram deixados propositalmente para que você consiga acompanhar a evolução do código entendendo cada etapa.
+- Para a parte *rest* é só seguir os demais pacotes, simulei uma pequena aplicação separada por camadas e respeitando suas funcionalidades.

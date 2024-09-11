@@ -1,6 +1,5 @@
-package com.angelozero.spring.security64.z_old;
+package com.angelozero.spring.security64.zzz;
 
-import com.angelozero.spring.security64.usecase.domain.BankAccount;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,7 +21,12 @@ public class BankAccountService implements BankAccountInterface {
     }
 
     @Override
-    public void saveBankAccount(BankAccount bankAccountToSave) {
+    public void saveBankAccount(BankAccountData bankAccountDataToSave) {
+        System.out.println("Bank Account saved with success");
+    }
 
+    @Override
+    public void updateBankAccount(BankAccountData bankAccountDataToUpdate) {
+        System.out.println("Bank Account updated with success");
     }
 }

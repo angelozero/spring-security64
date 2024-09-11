@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authorization.method.HandleAuthorizationDenied;
 
-
+@Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonSerialize(as = BankAccount.class)
-public class BankAccount extends SecurityData {
+public class BankAccount {
 
     private Integer id;
     private String owner;

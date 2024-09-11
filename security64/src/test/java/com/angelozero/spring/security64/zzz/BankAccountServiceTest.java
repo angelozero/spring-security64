@@ -1,6 +1,5 @@
-package com.angelozero.spring.security64.z_old;
+package com.angelozero.spring.security64.zzz;
 
-import com.angelozero.spring.security64.usecase.domain.BankAccount;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -127,6 +126,22 @@ public class BankAccountServiceTest {
     void shouldSNotSaveABankAccount() {
         assertThatExceptionOfType(AuthorizationDeniedException.class)
                 .isThrownBy(() -> service.saveBankAccount(mockBankAccountAngelo()))
+                .withMessage("Access Denied");
+    }
+
+    @Test
+    @DisplayName("Should update a bank account with success")
+    @WithMockUserAngelo
+    void shouldUpdateABankAccountWithSuccess() {
+        service.updateBankAccount(mockBankAccountAngelo());
+    }
+
+    @Test
+    @DisplayName("Should not update a bank account")
+    @WithMockUserJake
+    void shouldSNotUpdateABankAccount() {
+        assertThatExceptionOfType(AuthorizationDeniedException.class)
+                .isThrownBy(() -> service.updateBankAccount(mockBankAccountAngelo()))
                 .withMessage("Access Denied");
     }
 
