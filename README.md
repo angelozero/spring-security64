@@ -737,3 +737,5 @@ public class SpringSecurity {
 - Por hoje é só, com isso conseguimos passar por algumas *features* que o *Spring Security* tem a nos oferecer.
 - Para o projeto de teste veja o pacote `zzz` nele tem todas as classes utilziadas na explicação e todo o código utilizado, os comentários foram deixados propositalmente para que você consiga acompanhar a evolução do código entendendo cada etapa.
 - Para a parte *rest* é só seguir os demais pacotes, simulei uma pequena aplicação separada por camadas e respeitando suas funcionalidades.
+- como principal referência para este projeto, foi utilizado a apresentação 
+    - [Let’s Explore Spring Security 6.4 (SpringOne 2024)](https://youtu.be/9eoi1TViceM)
