@@ -403,14 +403,14 @@
     - Se for verdadeiro
         - Retorna o objeto (dados da conta)
     - Se for falso 
-        - Verifique se a role do usuário da sessão tem o nível de privilégio para acessar os dados do objeto retornado (os dados da conta)
+        - Verifique se a *role* do usuário da sessão tem o nível de privilégio para acessar os dados do objeto retornado (os dados da conta)
             - Se for verdadeiro
                 - Retorna o objeto (dados da conta)
             - Se for falso
                 - Retornar falha *Access Denied*
     - Fim
 
-ela deve receber as seguintes informações:
+- Ela deve receber as seguintes informações:
     ```java
     @Retention(RetentionPolicy.RUNTIME)
     @PostAuthorize("returnObject?.owner == authentication?.name or hasRole('ADMIN')")
@@ -590,3 +590,7 @@ public class BankAccountServiceProxy implements BankAccountInterface {
         assertEquals("****", response.getAccountNumber());
     }
     ```
+
+- Por fim lembre-se que podemos ainda fazer qualquer tipo de validação dentro do nosso *handler* criado pois lá temos os dados de proxy, sendo assim podendo criar nossas próprias regras customizadas
+- `handleDeniedInvocation(MethodInvocation methodInvocation, AuthorizationResult authorizationResult)`
+
