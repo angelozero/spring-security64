@@ -338,6 +338,8 @@
 - Mas como você pode notar estamos duplicando `@WithMockUser("angelo")` e `@WithMockUser("jake")` e isso não é bom pois temos tipos de pessoas diferentes e aqui estamos distinguindo isso apenas pelo nome.
 - Vamos melhorar isso criando uma *annotation* específica para cada tipo de usuário.
 - Vamos criar a *annotation* `WithMockUserAngelo` e `WithMockUserJake`
+- Vamos criar uma terceira *Persona* que não tera um nome e sim uma *role*, ela tera o mesmo privilégio de acesso que um usuário adiministrador, sera `WithMockUserAdmin`
+
 - `WithMockUserAngelo`
     ```java
     @Retention(RetentionPolicy.RUNTIME)
@@ -354,6 +356,14 @@
     }
     ```
 
+- `WithMockUserAdmin`
+    ```java
+    @Retention(RetentionPolicy.RUNTIME)
+    @WithMockUser(roles = {"ADMIN"})
+    public @interface WithMockUserAdmin {
+    }
+    ```
+
 - E com isso podemos incluir essas novas *annotations* em nossos testes, tudo deve continuar funcionando e os testes passando.
     ```java
         @Test
@@ -361,5 +371,222 @@
         @WithMockUserAngelo
         void findByIdGranted() {
         //... some code here
-    ``` 
-- 
+    ```
+
+## Utilizando lógicas autorização com Spring Security
+- Voltando para nossa interface `BankAccountInterface` vamos fazer uma nova modificação.
+- Quero utilizar o **Spring Security** para que faça uma *Pré* e uma *Pós* validação de segurança.
+- No método `findById()` quero que após a sua execução seja validado se o retorno da informação, no caso o proprietário da conta, tenha o mesmo nome que o usuário logado na sessão.
+- Para isso podemos utilizar uma *annotation* chamada `@PostAuthorize()` e informar para ela uma palavhra chave chamada `returnObject` aonde teremos acesso ao objeto retornado, no caso *BankAccount*.
+- Tendo a informação de `BankAccount` e lembrando que o *Spring Security* tem acesso aos dados de quem está *logado* acessando `SecurityContextHolder`, podemos então criar uma simples validação.
+- Verificamos então se após o objeto (*BankAccount*) retornado não sendo nulo e tiver a mesma informação (`returnObject?.owner`) que os dados sendo não nulos dentro de (*SecurityContextHolder*) tem (`authentication?.name`) então autorize o acesso ao objeto retornado.
+- O serviço alterado fica assim
+    ```java
+    public interface BankAccountInterface {
+
+        // returnObject? -> to avoid null pointer when access BankAccountData
+        // .owner -> the BankAccountData owner
+        // authentication? -> to avoid null pointer when access SecurityContextHolder
+        // .name -- the name of the user in SecurityContextHolder
+        @PostAuthorize("returnObject?.owner == authentication?.name")
+        BankAccountData findById(Integer id);
+
+        @PostAuthorize("returnObject?.owner == authentication?.name")
+        BankAccountData getById(Integer id);
+    }
+    ```
+
+- Ainda na classe `BankAccountInterface` vamos aproveitar e reutilizar uma unica *annotation* para que faça mesma função assim remover a duplicidade de regra.
+- Criando uma nova *annotation* chamada `PosReadBankAccount`, nela iremos centralizar toda a lógica de verificação do nome do usuário e não só isso vamos adicionar também a lógica de verificação da *role* que o usuário autenticado na sessão tem
+- A regra fica assim:
+    - Após fazer a consulta verifico se o nome (`owner`)  é igual ao nome do usuário da sessão (`name`)
+    - Se for verdadeiro
+        - Retorna o objeto (dados da conta)
+    - Se for falso 
+        - Verifique se a role do usuário da sessão tem o nível de privilégio para acessar os dados do objeto retornado (os dados da conta)
+            - Se for verdadeiro
+                - Retorna o objeto (dados da conta)
+            - Se for falso
+                - Retornar falha *Access Denied*
+    - Fim
+
+ela deve receber as seguintes informações:
+    ```java
+    @Retention(RetentionPolicy.RUNTIME)
+    @PostAuthorize("returnObject?.owner == authentication?.name or hasRole('ADMIN')")
+    public @interface PosReadBankAccount {
+    }
+    ```
+
+- Para mais informações sobre as palavras chave `returnObject`, `authentication` e `hasRole` acesse a documentação da classe [SecurityExpressionRoot](https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/access/expression/SecurityExpressionRoot.html).
+
+- Com a *annotation* criada, as alterações finais na interface deve ficar assim:
+    ```java
+    public interface BankAccountInterface {
+
+        @PosReadBankAccount
+        BankAccountData findById(Integer id);
+
+        @PosReadBankAccount
+        BankAccountData getById(Integer id);
+    }
+    ```
+
+- Agora precisamos fazer uma simples alteração no nosso teste para entendermos melhor como o *Spring Security* funciona quando passamos a utiliza-lo.
+- Na nossa classe de teste vamos alterar agora para que as configurações de um usuário criado seja feito por uma *factory* chamada `AuthorizationProxyFactory`
+- Com isso quero que a minha classe `BankAccountServiceProxy` deixe de validar as regras de autorização que até então estão todas sendo feitas manualmente.
+- A alteração na classe de teste fica assim:
+    ```java
+    AuthorizationProxyFactory factory
+            = AuthorizationAdvisorProxyFactory.withDefaults();
+
+    private final BankAccountInterface service = (BankAccountInterface) factory.proxy(new BankAccountService());
+    ```
+- Por fim lembra do nosso `WithMockUserAdmin` ? Pois bem, ele sera testado agora também! Quero que, se o nome do proprietário da conta não bater com o usuário logado verifique o tipo de acesso que ele tem, se for do tipo *ADMIN* então retorne o objeto
+- Para isso vamos adicionar um novo teste que deve passar
+    ```java
+    @Test
+    @DisplayName("Should find the bank account with success with role ADMIN")
+    @WithMockUserAdmin
+    void findByIdWithAdminGranted() {
+        service.findById(1);
+    }
+    ```
+- E para garantir que a regra de *role* está sendo executada criei um novo teste para um usuário que não tem nome e nem privilégio de *ADMIN*
+- Criação do usuário
+    ```java
+    @Retention(RetentionPolicy.RUNTIME)
+    @WithMockUser(roles = {"NOT_ADMIN"})
+    public @interface WithMockUserNotAdmin {
+    }
+    ```
+- Criação do teste
+    ```java
+    @Test
+    @DisplayName("Should fail to find the bank account with not admin role")
+    @WithMockUserNotAdmin
+    void findByIdWhenDeniedWithNotAdminRole() {
+        assertThatExceptionOfType(AuthorizationDeniedException.class)
+                .isThrownBy(() -> service.findById(1))
+                .withMessage("Access Denied");
+    }
+    ```
+
+- Com essas novas alterações ja podemos remover a regra de validação que esta sendo feita na nossa classe de serviço `BankAccountServiceProxy`.
+- A classe fica assim:
+```java
+@Service
+@AllArgsConstructor
+public class BankAccountServiceProxy implements BankAccountInterface {
+
+    private final BankAccountService service;
+
+    @Override
+    public BankAccountData findById(Integer id) {
+        return service.findById(id);
+    }
+
+    @Override
+    public BankAccountData getById(Integer id) {
+        return service.findById(id);
+    }
+}
+```
+- E todos os testes devem continuar passando.
+
+## Inserindo regras de validação de segurança em nossas entidades de domínio
+- Ja sabemos que um usuário com a *role* do tipo *ADMIN* consegue ter acesso a conta, mesmo não sendo o usuário logado na sessão, mas faria sentido ter acesso ao número da conta ?
+- Para que possamos então retornar um valor *mascárado*, ou seja, ao invés do numero da conta, vamos utilizar uma regra do *Spring Security* para que possa ser retornado alguns asteriscos.
+- Antes de tudo precisamos lembrar que `BankAccountData` não é uma classe que esta dentro das informações de *proxy* que acessamos por exemplo para pegar os dados do usuário da sessão, então como podemos resolver este problema ?
+- Primeiramente vamos utilizar uma nova *annotation* chamada `@AuthorizeReturnObject` na nossa *annotation* criada chamada `PosReadBankAccount`
+- Basicamente o que essa nova *annotation* faz é poder aplicar regras de acesso específicas baseadas no resultado que um método retorna, facilitando a implementação de lógica de segurança mais granular. Para mais informações acesso a documentação da *annotation* [@AuthorizeReturnObject](https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html#_using_authorizereturnobject_at_the_class_level)
+
+- A partir deste ponto vamos fazer algumas alterações em nossa aplicação para que fique cada vez mais resumida, pois como ja passamos por diversos pontos aonde explico o que cada coisa faz, vou remover alguns trechos de código.
+- Minha primeira alteração será na classe `BankAccountServiceProxy`, ela não será mais utilizada e também não ira implementar mais a nossa interface `BankAccountServiceProxy`. A cargo desta implementação e serviço deixo apenas a classe inicial `BankAccountService`
+- Nossa classe `BankAccountServiceProxy` agora fica assim:
+    ```java
+    @Service
+    @AllArgsConstructor
+    public class BankAccountServiceProxy {
+
+        @Autowired
+        private final BankAccountService service;
+
+        public BankAccountData findById(Integer id) {
+            return service.findById(id);
+        }
+
+        public BankAccountData getById(Integer id) {
+            return service.findById(id);
+        }
+    }
+    ```
+- E para que os testes continuem funcionando adiciono a *annotation* `@EnableMethodSecurity` na classe principal `Security64Application`
+    ```java
+    @SpringBootApplication
+    @EnableMethodSecurity
+    public class Security64Application {
+
+        public static void main(String[] args) {
+            SpringApplication.run(Security64Application.class, args);
+        }
+
+    }
+    ```
+- Mas e a máscara ? Para isso vamos criar uma classe do tipo *handler* para que possa interceptar qualquer falha que houver de segurança. 
+- Se caso atender uma regra específica podemos tratar o retorno da maneira como quisermos.
+- A classe criada se chama `MaskAuthorizationDeniedHandler` que deve implementar `MethodAuthorizationDeniedHandler`, e nela pedimos apenas para retornar uma sequência de astericos.
+    ```java
+    @Component
+    public class MaskAuthorizationDeniedHandler implements MethodAuthorizationDeniedHandler {
+
+        @Override
+        public Object handleDeniedInvocation(MethodInvocation methodInvocation, AuthorizationResult authorizationResult) {
+            return "****";
+        }
+    }
+    ```
+- E na nossa classe `BanckAccountData` vamos adicionar uma nova *annotation* que se caso houver uma falha (*nome do usuário da sessão não corresponder ao nome do proprietário da conta*) ao tentar recuperar o numero da conta (`getAccountNumber()`), vamos informar qual o tipo de tratamento que aquela *excpetion* deve ter.
+- Para isso vamos adiconar a *annotation* `@HandleAuthorizationDenied` informando a ela qual será sua classe *handler* que deverá tratar a falha `(handlerClass = MaskAuthorizationDeniedHandler.class)`
+- A classe `BankAccountData` fica assim:
+    ```java
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @JsonSerialize(as = BankAccount.class)
+    public class BankAccount extends SecurityData {
+
+        private Integer id;
+        private String owner;
+        private String accountNumber;
+        private double balance;
+
+        @PreAuthorize("this.owner == authentication?.name")
+        @HandleAuthorizationDenied(handlerClass = MaskAuthorizationDeniedHandler.class)
+        public String getAccountNumber() {
+            return accountNumber;
+        }
+    }
+    ```
+- E por fim vamos validar com os seguintes testes
+- Deve ver o número da conta com sucesso
+    ```java
+    @Test
+    @DisplayName("Should find the bank account with success see the account number")
+    @WithMockUserAngelo
+    void findByIdWithSuccessAndSeeTheAccountNumber() {
+        var response = service.findById(1);
+        assertEquals("1234", response.getAccountNumber());
+    }
+    ```
+
+- Deve ver astericos no lugar do numero da conta
+    ```java
+    @Test
+    @DisplayName("Should find the bank account with success but cannot see the account number")
+    @WithMockUserAdmin
+    void findByIdWithSuccessButCannotSeeTheAccountNumber() {
+        var response = service.findById(1);
+        assertEquals("****", response.getAccountNumber());
+    }
+    ```
