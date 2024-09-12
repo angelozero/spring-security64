@@ -710,7 +710,7 @@ public class SpringSecurity {
 ```
 - Para terstarmos como se fosse uma chamada *http* vou deixar de exemplo 3 cenários de teste, vale resssaltar que a classe / objeto que está sendo retornado como resposta precisa ter algumas configurações pois como ela se torna uma parte do proxy a biblioteca de desserialização `jackson` por si só não irá conseguir converter o dado para `json`
 - O retorno sem desserialização
-    ![retorno-proxy](./images/retorno-proxy.png)
+    ![05-retorno-proxy](./images/05-retorno-proxy.png)
 
 - Para que o retorno esteja correto precisamos da *annotation* `@JsonSerialize()` do pacote `com.fasterxml.jackson.databind.annotation.JsonSerialize` e do `@Data` do *Lombok*
 - A classe fica assim:
@@ -727,11 +727,11 @@ public class SpringSecurity {
 - Agora subindo a aplicação e chamando a rota  `GET - /api/v1/bank-account/{id}` (aqui estou utilizando o [Postman](https://www.postman.com/downloads/))
 - Vamos aos testes
     - 1. Sucesso ao estar logado com o usuário proprietário da conta
-        ![teste-ok](./images/teste-ok.png)
+        ![06-teste-ok](./images/06-teste.png)
     - 2. Sucesso ao estar com um usuário que tem privilégio de ver alguns dados da conta mas não seu número
-        ![teste-1-ok](./images/teste-1-ok.png)
+        ![07-teste-1-ok](./images/07-teste.png)
     - 3. Falha ao estar logado com um usuário que não deve ter acesso a conta da qual não é sua
-        ![teste-2-ok](./images/teste-2-ok.png)
+        ![08-teste-2-ok](./images/08-teste.png)
 
 ## Enfim
 - Por hoje é só, com isso conseguimos passar por algumas *features* que o *Spring Security* tem a nos oferecer.
